@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAIL QMS - Field Inspection</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-100 flex items-center justify-center p-0 sm:p-4">
+
+    <!-- Container Card -->
+    <div class="w-full max-w-md bg-slate-800/90 backdrop-blur-xl border border-slate-700/50 sm:rounded-3xl shadow-2xl shadow-blue-950/50 min-h-screen sm:min-h-0 flex flex-col justify-between overflow-hidden">
+        
+        <!-- Header -->
+        <div>
+            <header class="bg-gradient-to-r from-blue-900 via-indigo-900 to-slate-900 p-5 border-b border-slate-700/60 shadow-lg relative">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <div class="w-10 h-10 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-blue-400 font-bold shadow-inner">
+                            ⚡
+                        </div>
+                        <div>
+                            <h1 class="font-bold text-lg text-white tracking-wide leading-tight">SAIL QMS</h1>
+                            <p class="text-xs text-blue-300 font-medium">Field Inspection Portal</p>
+                        </div>
+                    </div>
+                    
+                    <!-- Logout & Version Pill -->
+                    <div class="flex items-center space-x-2">
+                        <span class="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+                            v2.4 Live
+                        </span>
+                        <a href="{% url 'logout' %}" class="px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/20 text-rose-300 border border-rose-500/30 hover:bg-rose-500/30 transition-all">
+                            Logout
+                        </a>
+                    </div>
+                </div>
+            </header>
+
+            <main class="p-6 space-y-6">
+
+                <!-- Dynamic GPS Status Banner -->
+                <div id="gps-status" class="p-4 rounded-2xl text-sm font-medium flex items-center space-x-3 bg-amber-500/10 text-amber-300 border border-amber-500/20 shadow-sm backdrop-blur-sm transition-all duration-300">
+                    <span class="relative flex h-3 w-3">
+                      <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                      <span class="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                    </span>
+                    <span id="gps-text" class="flex-1">Detecting current GPS location...</span>
+                </div>
+
+                <form method="POST" enctype="multipart/form-data" class="space-y-5">
+                    {% csrf_token %}
+
+                    <!-- Hidden GPS Payload -->
+                    <input type="hidden" name="latitude" id="id_latitude">
+                    <input type="hidden" name="longitude" id="id_longitude">
+
+                    <!-- Select Quarter Code -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Quarter Code</label>
+                        <div class="relative">
+                            <select id="quarter_select" name="quarter_code" required class="w-full bg-slate-900/80 border border-slate-700 text-slate-100 p-3.5 pr-10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none appearance-none transition-all shadow-inner text-sm">
+                                <option value="" disabled selected class="text-slate-500">-- Select Target Quarter --</option>
+                                {% for q in quarters %}
+                                    <option value="{{ q.quarter_code }}" class="bg-slate-900 text-slate-200">{{ q.quarter_code }} ({{ q.sector.name }})</option>
+                                {% endfor %}
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
+                                ▾
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Quarter Status -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Quarter Status</label>
+                        <div class="relative">
+                            <select name="quarter_status" required class="w-full bg-slate-900/80 border border-slate-700 text-slate-100 p-3.5 pr-10 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none appearance-none transition-all shadow-inner text-sm">
+                                <option value="LOCKED" class="bg-slate-900">🔒 Locked</option>
+                                <option value="VACANT" class="bg-slate-900">🏚️ Vacant</option>
+                                <option value="OCCUPIED_AUTHORIZED" class="bg-slate-900">✅ Occupied (Authorized)</option>
+                                <option value="OCCUPIED_UNAUTHORIZED" class="bg-slate-900">⚠️ Occupied (Unauthorized)</option>
+                            </select>
+                            <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-3.5 text-slate-400">
+                                ▾
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Live Camera & Canvas Watermark Card -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Door Photo Evidence <span class="text-rose-400">*</span></label>
+                        
+                        <!-- Hidden input to submit watermarked blob file to Django -->
+                        <input type="file" id="photo-upload" name="photo" accept="image/*" required class="hidden">
+
+                        <div id="camera-card" class="relative border-2 border-dashed border-slate-700 bg-slate-900/50 rounded-2xl p-4 text-center transition-all duration-200">
+                            
+                            <!-- Video Feed -->
+                            <video id="camera-feed" class="w-full h-48 object-cover rounded-xl hidden" autoplay playsinline></video>
+                            
+                            <!-- Hidden Processing Canvas -->
+                            <canvas id="watermark-canvas" class="hidden"></canvas>
+                            
+                            <!-- Captured Watermarked Preview -->
+                            <img id="photo-preview" class="w-full h-48 object-cover rounded-xl hidden border border-slate-600 shadow-md">
+
+                            <!-- Initial Placeholder State -->
+                            <div id="upload-placeholder" class="py-4 space-y-2">
+                                <div class="text-3xl text-blue-400">📷</div>
+                                <p class="text-xs font-semibold text-slate-300">Live Field Camera Required</p>
+                                <p class="text-[10px] text-slate-500">Stamps Quarter Code, GPS & Timestamp onto photo</p>
+                                <button type="button" onclick="startCamera()" class="mt-2 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-md shadow-blue-600/20">
+                                    Open Field Camera
+                                </button>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <button type="button" id="snap-btn" onclick="captureAndWatermark()" class="hidden w-full mt-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl text-xs transition-all shadow-md shadow-emerald-600/20">
+                                📸 Snap & Watermark Evidence
+                            </button>
+
+                            <button type="button" id="retake-btn" onclick="startCamera()" class="hidden w-full mt-3 bg-slate-700 hover:bg-slate-600 text-slate-200 font-bold py-2 rounded-xl text-xs transition-all">
+                                🔄 Retake Photo
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Field Remarks -->
+                    <div class="space-y-1.5">
+                        <label class="block text-xs font-bold uppercase tracking-wider text-slate-400">Field Remarks / Notes</label>
+                        <textarea name="remarks" rows="2" placeholder="Optional notes regarding damage, locks, occupants..." class="w-full bg-slate-900/80 border border-slate-700 text-slate-100 p-3.5 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 focus:outline-none transition-all text-sm placeholder:text-slate-600 shadow-inner"></textarea>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" id="submit-btn" disabled class="w-full bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-blue-600/30 active:scale-[0.98] disabled:opacity-40 disabled:cursor-not-allowed disabled:transform-none transition-all duration-150 flex items-center justify-center space-x-2 text-sm tracking-wide">
+                        <span id="btn-text">Waiting for GPS & Photo...</span>
+                        <span class="text-lg">➔</span>
+                    </button>
+                </form>
+            </main>
+        </div>
+
+        <!-- Footer -->
+        <footer class="p-4 flex items-center justify-between text-xs text-slate-500 border-t border-slate-800 bg-slate-950/40">
+            <span>Operator: <strong class="text-blue-400">{{ request.user.username }}</strong></span>
+            <a href="{% url 'logout' %}" class="text-rose-400 hover:underline font-medium">Logout</a>
+        </footer>
+    </div>
+
+    <!-- Interactive Scripts -->
+    <script>
+        let isGpsReady = false;
+        let isPhotoUploaded = false;
+
+        let video = document.getElementById('camera-feed');
+        let canvas = document.getElementById('watermark-canvas');
+        let preview = document.getElementById('photo-preview');
+        let cameraCard = document.getElementById('camera-card');
+        let retakeBtn = document.getElementById('retake-btn');
+
+        function updateSubmitButton() {
+            const submitBtn = document.getElementById('submit-btn');
+            const btnText = document.getElementById('btn-text');
+
+            if (isGpsReady && isPhotoUploaded) {
+                submitBtn.disabled = false;
+                btnText.innerText = "Submit Inspection Report";
+            } else if (!isGpsReady && !isPhotoUploaded) {
+                submitBtn.disabled = true;
+                btnText.innerText = "Waiting for GPS & Photo...";
+            } else if (!isGpsReady) {
+                submitBtn.disabled = true;
+                btnText.innerText = "Waiting for GPS Fix...";
+            } else if (!isPhotoUploaded) {
+                submitBtn.disabled = true;
+                btnText.innerText = "Capture Photo to Submit";
+            }
+        }
+
+        // 1. Geolocation Handler
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(
+                (position) => {
+                    let lat = position.coords.latitude;
+                    let lng = position.coords.longitude;
+
+                    document.getElementById('id_latitude').value = lat;
+                    document.getElementById('id_longitude').value = lng;
+
+                    const statusBox = document.getElementById('gps-status');
+                    const statusText = document.getElementById('gps-text');
+
+                    statusBox.className = "p-4 rounded-2xl text-sm font-medium flex items-center space-x-3 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shadow-sm backdrop-blur-sm transition-all duration-300";
+                    statusText.innerText = `GPS Fixed: Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}`;
+
+                    statusBox.querySelector('span.relative').innerHTML = `<span class="text-emerald-400 font-bold text-sm">✓</span>`;
+
+                    isGpsReady = true;
+                    updateSubmitButton();
+                },
+                (error) => {
+                    const statusBox = document.getElementById('gps-status');
+                    const statusText = document.getElementById('gps-text');
+
+                    statusBox.className = "p-4 rounded-2xl text-sm font-medium flex items-center space-x-3 bg-rose-500/10 text-rose-300 border border-rose-500/20 shadow-sm backdrop-blur-sm transition-all duration-300";
+                    statusText.innerText = "GPS Permission Denied. Enable location permissions to proceed.";
+                    statusBox.querySelector('span.relative').innerHTML = `<span class="text-rose-400 font-bold text-sm">✕</span>`;
+
+                    isGpsReady = false;
+                    updateSubmitButton();
+                },
+                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+            );
+        } else {
+            alert("Geolocation is not supported by your mobile browser.");
+        }
+
+        // 2. Camera Stream
+        async function startCamera() {
+            try {
+                let stream = await navigator.mediaDevices.getUserMedia({ 
+                    video: { facingMode: { exact: "environment" } }, 
+                    audio: false 
+                });
+                video.srcObject = stream;
+            } catch (err) {
+                let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                video.srcObject = stream;
+            }
+            
+            document.getElementById('upload-placeholder').classList.add('hidden');
+            preview.classList.add('hidden');
+            retakeBtn.classList.add('hidden');
+            video.classList.remove('hidden');
+            document.getElementById('snap-btn').classList.remove('hidden');
+
+            // Reset borders
+            cameraCard.classList.remove('border-solid', 'border-emerald-500');
+            cameraCard.classList.add('border-dashed', 'border-slate-700');
+
+            isPhotoUploaded = false;
+            updateSubmitButton();
+        }
+
+        // 3. Canvas Capture & Watermarking
+        function captureAndWatermark() {
+            let ctx = canvas.getContext('2d');
+            canvas.width = video.videoWidth || 640;
+            canvas.height = video.videoHeight || 480;
+
+            // Draw video frame to canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Translucent banner
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+            ctx.fillRect(0, canvas.height - 65, canvas.width, 65);
+
+            // Dynamic values
+            let qSelect = document.getElementById('quarter_select');
+            let qCode = qSelect.value ? qSelect.value : "SAIL QMS";
+            let lat = document.getElementById('id_latitude').value || "0.0000";
+            let lng = document.getElementById('id_longitude').value || "0.0000";
+            let timestamp = new Date().toLocaleString();
+
+            // Watermark text
+            ctx.fillStyle = '#38bdf8'; // Sky blue
+            ctx.font = 'bold 15px Inter, sans-serif';
+            ctx.fillText(`SAIL QMS | QUARTER: ${qCode}`, 15, canvas.height - 38);
+
+            ctx.fillStyle = '#f8fafc'; // White
+            ctx.font = '11px Inter, sans-serif';
+            ctx.fillText(`GPS: ${lat}, ${lng} | TIME: ${timestamp}`, 15, canvas.height - 16);
+
+            // Convert to file blob
+            canvas.toBlob((blob) => {
+                let file = new File([blob], `evidence_${Date.now()}.jpg`, { type: "image/jpeg" });
+                let container = new DataTransfer();
+                container.items.add(file);
+                
+                let photoInput = document.getElementById('photo-upload');
+                photoInput.files = container.files;
+
+                // Render preview
+                preview.src = canvas.toDataURL('image/jpeg');
+                preview.classList.remove('hidden');
+                video.classList.add('hidden');
+                document.getElementById('snap-btn').classList.add('hidden');
+                retakeBtn.classList.remove('hidden');
+
+                // Border styling update
+                cameraCard.classList.remove('border-dashed', 'border-slate-700');
+                cameraCard.classList.add('border-solid', 'border-emerald-500');
+                
+                // Stop media tracks
+                if (video.srcObject) {
+                    let tracks = video.srcObject.getTracks();
+                    tracks.forEach(track => track.stop());
+                }
+
+                isPhotoUploaded = true;
+                updateSubmitButton();
+            }, 'image/jpeg', 0.92);
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SAIL QMS - Submission Successful</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>body { font-family: 'Inter', sans-serif; }</style>
+</head>
+<body class="bg-slate-900 min-h-screen text-slate-100 flex items-center justify-center p-4">
+    <div class="w-full max-w-md bg-slate-800/90 backdrop-blur-xl border border-slate-700/50 rounded-3xl p-8 shadow-2xl shadow-blue-950/50 text-center space-y-6">
+        
+        <!-- Status Icon -->
+        <div class="w-20 h-20 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center mx-auto text-3xl font-bold shadow-inner">
+            ✓
+        </div>
+
+        <div class="space-y-2">
+            <h2 class="text-2xl font-bold text-white tracking-wide">Inspection Filed</h2>
+            <p class="text-sm text-slate-400">The quarter photo and GPS coordinates have been uploaded successfully for Supervisor verification.</p>
+        </div>
+
+        <div class="space-y-3 pt-2">
+            <!-- Action 1: File Another -->
+            <a href="{% url 'operator_submit' %}" class="block w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-blue-600/30 transition-all text-sm tracking-wide">
+                ➕ File Another Quarter Report
+            </a>
+
+            <!-- Action 2: Logout -->
+            <a href="{% url 'logout' %}" class="block w-full bg-slate-900/80 border border-slate-700 hover:bg-rose-500/10 hover:border-rose-500/30 text-rose-400 font-semibold py-3 rounded-xl transition-all text-sm">
+                🚪 Logout Operator Session
+            </a>
+        </div>
+
+        <p class="text-xs text-slate-500 pt-2">
+            Active Operator: <span class="font-semibold text-blue-400">{{ request.user.username }}</span>
+        </p>
+    </div>
+</body>
+</html>
