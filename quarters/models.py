@@ -11,7 +11,7 @@ class OperatorProfile(models.Model):
         ('OPERATOR', 'Field Operator (Maker)'),
         ('SUPERVISOR', 'Supervisor (Checker)'),
         ('MANAGER', 'Manager'),
-        ('ADMIN', 'System Administrator'),  # <--- Added Admin Role
+        ('ADMIN', 'System Administrator'),
     ]
 
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='operator_profile')
@@ -41,7 +41,7 @@ class OperatorProfile(models.Model):
 class Sector(models.Model):
     name = models.CharField(max_length=50, unique=True, help_text="e.g., Sector 4F")
     
-    # Coordinates & Radius for Haversine Distance Geofencing
+    # Coordinates & Radius for Haversine Distance Geofencing (Circular Fallback)
     center_latitude = models.FloatField(
         null=True, 
         blank=True, 
@@ -57,11 +57,11 @@ class Sector(models.Model):
         help_text="Maximum allowed distance in meters from center for verification (e.g., 500.0)"
     )
     
-    # Optional Polygon cache boundary
+    # Dynamic Polygon Boundary Coordinates (Ray-Casting)
     boundary_coordinates = models.JSONField(
         default=list, 
         blank=True, 
-        help_text="List of coordinate dicts defining the sector polygon boundary"
+        help_text='List of coordinate dicts defining the sector polygon boundary: [{"lat": 23.66, "lng": 86.15}, ...]'
     )
 
     def __str__(self):
@@ -131,7 +131,7 @@ class InspectionReport(models.Model):
 
     is_location_verified = models.BooleanField(
         default=False, 
-        help_text="Set to True via Haversine radius check"
+        help_text="Set to True via Hybrid Polygon or Haversine check"
     )
     verification_status = models.CharField(
         max_length=20, 

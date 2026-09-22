@@ -38,6 +38,33 @@ def haversine_distance(lat1, lon1, lat2, lon2):
 
 
 # ------------------------------------------------------------------
+# RAY-CASTING POINT-IN-POLYGON HELPER FUNCTION
+# ------------------------------------------------------------------
+def is_point_in_polygon(lat, lng, polygon_coords):
+    """
+    Ray-Casting Algorithm to check if a point (lat, lng) is inside a polygon boundary.
+    Handles any dynamic number of vertices (polygon_coords).
+    polygon_coords: List of dicts -> [{'lat': 23.66, 'lng': 86.15}, ...]
+    """
+    n = len(polygon_coords)
+    inside = False
+
+    p1x, p1y = polygon_coords[0]['lat'], polygon_coords[0]['lng']
+    for i in range(n + 1):
+        p2x, p2y = polygon_coords[i % n]['lat'], polygon_coords[i % n]['lng']
+        if lng > min(p1y, p2y):
+            if lng <= max(p1y, p2y):
+                if lat <= max(p1x, p2x):
+                    if p1y != p2y:
+                        xinters = (lng - p1y) * (p2x - p1x) / (p2y - p1y) + p1x
+                    if p1x == p2x or lat <= xinters:
+                        inside = not inside
+        p1x, p1y = p2x, p2y
+
+    return inside
+
+
+# ------------------------------------------------------------------
 # 1. AUTHENTICATION & OTP SYSTEM
 # ------------------------------------------------------------------
 def request_otp_view(request):
@@ -285,7 +312,7 @@ def manager_overview_view(request):
 
 
 # ------------------------------------------------------------------
-# 5. GEOFENCING API: Haversine Distance Geofencing Verification
+# 5. GEOFENCING API: Smart Hybrid Geofencing Verification
 # ------------------------------------------------------------------
 @login_required
 @role_required(allowed_roles=['SUPERVISOR', 'MANAGER'])
@@ -307,6 +334,41 @@ def verify_gps_api(request, report_id):
         if captured_lat is None or captured_lng is None:
             return JsonResponse({'status': 'error', 'is_verified': False, 'message': 'GPS Lat/Lng coordinates missing hain.'}, status=200)
 
+        # -------------------------------------------------------------
+        # AUTOMATIC CHECK 1: Polygon Boundary Check (Ray-Casting)
+        # -------------------------------------------------------------
+        polygon_coords = getattr(sector, 'boundary_coordinates', None)
+
+        if polygon_coords:
+            if isinstance(polygon_coords, str):
+                polygon_coords = json.loads(polygon_coords)
+
+            if len(polygon_coords) >= 3:
+                is_inside = is_point_in_polygon(captured_lat, captured_lng, polygon_coords)
+                report.is_location_verified = is_inside
+                report.save()
+
+                print("\n" + "=" * 50)
+                print(f"📍 CAPTURED GPS: {captured_lat}, {captured_lng}")
+                print(f"🗺️ POLYGON CHECK ({len(polygon_coords)} vertices): INSIDE = {is_inside}")
+                print("=" * 50 + "\n")
+
+                if is_inside:
+                    return JsonResponse({
+                        'status': 'success',
+                        'is_verified': True,
+                        'message': f"Verified! Position is strictly INSIDE polygon boundary for {sector.name}."
+                    })
+                else:
+                    return JsonResponse({
+                        'status': 'success',
+                        'is_verified': False,
+                        'message': f"Fraud Alert! Position is OUTSIDE polygon boundary for {sector.name}."
+                    })
+
+        # -------------------------------------------------------------
+        # AUTOMATIC FALLBACK 2: Circular Radius Check (Haversine Formula)
+        # -------------------------------------------------------------
         center_lat = getattr(sector, 'center_latitude', None)
         center_lng = getattr(sector, 'center_longitude', None)
 
@@ -314,21 +376,18 @@ def verify_gps_api(request, report_id):
             return JsonResponse({
                 'status': 'error', 
                 'is_verified': False, 
-                'message': f"Sector '{sector.name}' ke center coordinates Admin Panel me missing hain."
+                'message': f"Sector '{sector.name}' ke boundary points or center coordinates Admin Panel me missing hain."
             }, status=200)
 
-        # 1. Physical Distance Calculation
         distance_meters = haversine_distance(captured_lat, captured_lng, center_lat, center_lng)
         allowed_radius = getattr(sector, 'allowed_radius_meters', None) or 500.0
 
-        # Debug Terminal Output
         print("\n" + "=" * 50)
         print(f"📍 CAPTURED GPS: {captured_lat}, {captured_lng}")
         print(f"🎯 SECTOR CENTER: {center_lat}, {center_lng}")
         print(f"📏 CALCULATED DISTANCE: {round(distance_meters, 2)}m | ALLOWED: {allowed_radius}m")
         print("=" * 50 + "\n")
 
-        # 2. Geofence Comparison Check
         if distance_meters <= allowed_radius:
             report.is_location_verified = True
             report.save()
