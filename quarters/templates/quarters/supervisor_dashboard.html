@@ -1,283 +1,276 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAIL QMS - Supervisor Portal</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>body { font-family: 'Inter', sans-serif; }</style>
-</head>
-<body class="bg-slate-950 text-slate-100 min-h-screen pb-24">
+{% extends "layout.html" %}
 
-    <!-- Top Navigation Bar -->
-    <nav class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
-        <div class="flex items-center space-x-3">
-            <div class="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-blue-400 font-bold">
-                ⚡
-            </div>
-            <div>
-                <h1 class="font-bold text-base text-white tracking-wide">SAIL QMS</h1>
-                <p class="text-[10px] text-blue-400 uppercase tracking-wider font-semibold">Supervisor Portal (Checker)</p>
-            </div>
+{% block title %}SAIL QMS - Supervisor Portal{% endblock %}
+
+{% block content %}
+<!-- Top Navigation Bar -->
+<nav class="bg-slate-900/80 backdrop-blur-md border-b border-slate-800 px-6 py-4 flex justify-between items-center sticky top-0 z-50">
+    <div class="flex items-center space-x-3">
+        <div class="w-9 h-9 rounded-xl bg-blue-600/30 border border-blue-400/30 flex items-center justify-center text-blue-400 font-bold">
+            ⚡
         </div>
-        <div class="flex items-center space-x-4 text-xs text-slate-400">
-            <span>Supervisor: <strong class="text-slate-200">{{ request.user.username }}</strong></span>
-            <a href="{% url 'logout' %}" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-all">Logout</a>
+        <div>
+            <h1 class="font-bold text-base text-white tracking-wide">SAIL QMS</h1>
+            <p class="text-[10px] text-blue-400 uppercase tracking-wider font-semibold">Supervisor Portal (Checker)</p>
         </div>
-    </nav>
+    </div>
+    <div class="flex items-center space-x-4 text-xs text-slate-400">
+        <span>Supervisor: <strong class="text-slate-200">{{ request.user.username }}</strong></span>
+        <a href="{% url 'logout' %}" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-3 py-1.5 rounded-lg border border-slate-700 transition-all">Logout</a>
+    </div>
+</nav>
 
-    <div class="max-w-7xl mx-auto p-6 space-y-6">
+<div class="max-w-7xl mx-auto p-6 space-y-6 pb-24">
 
-        <!-- Django Flash Messages -->
-        {% if messages %}
-            {% for message in messages %}
-                <div class="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium">
-                    {{ message }}
-                </div>
-            {% endfor %}
-        {% endif %}
-
-        <!-- Controls / Filter Header -->
-        <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 backdrop-blur-md">
-            <form method="GET" class="flex items-center space-x-3">
-                <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Filter Sector:</label>
-                <div class="relative">
-                    <select name="sector" class="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-xl p-2.5 pr-8 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none">
-                        <option value="">All Sectors</option>
-                        {% for sec in sectors %}
-                            <option value="{{ sec.name }}" {% if selected_sector == sec.name %}selected{% endif %}>{{ sec.name }}</option>
-                        {% endfor %}
-                    </select>
-                    <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">▾</div>
-                </div>
-                <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-blue-600/20">
-                    Apply
-                </button>
-            </form>
-            <div class="text-xs text-slate-400">
-                Total Submissions: <span class="font-bold text-slate-200">{{ reports|length }}</span>
+    <!-- Django Flash Messages -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="p-4 rounded-xl bg-blue-500/10 border border-blue-500/20 text-blue-300 text-xs font-medium">
+                {{ message }}
             </div>
-        </div>
+        {% endfor %}
+    {% endif %}
 
-        <!-- Bulk Action Form Wrapper -->
-        <form id="bulk-review-form" method="POST" action="{% url 'review_inspection' 0 %}">
-            {% csrf_token %}
-
-            <!-- High-Density Data Table -->
-            <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left border-collapse">
-                        <thead class="bg-slate-800/80 text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-800">
-                            <tr>
-                                <th class="p-4 w-10 text-center">
-                                    <input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAll(this)" class="w-4 h-4 accent-blue-600 rounded bg-slate-900 border-slate-700 cursor-pointer">
-                                </th>
-                                <th class="p-4">Quarter Code</th>
-                                <th class="p-4">Operator</th>
-                                <th class="p-4">Reported Status</th>
-                                <th class="p-4">Evidence</th>
-                                <th class="p-4">Geofence Check</th>
-                                <th class="p-4">Verification Status</th>
-                                <th class="p-4 text-center">Action & Feedback</th>
-                            </tr>
-                        </thead>
-                        <tbody class="divide-y divide-slate-800/60 text-sm">
-                            {% for report in reports %}
-                            <tr class="hover:bg-slate-800/30 transition-colors">
-                                
-                                <!-- Checkbox Column -->
-                                <td class="p-4 text-center">
-                                    <input type="checkbox" name="selected_reports" value="{{ report.id }}" onclick="updateBulkBar()" class="report-checkbox w-4 h-4 accent-blue-600 rounded bg-slate-900 border-slate-700 cursor-pointer">
-                                </td>
-
-                                <!-- Quarter Code -->
-                                <td class="p-4 font-bold text-blue-400">{{ report.quarter.quarter_code }}</td>
-                                
-                                <!-- Operator -->
-                                <td class="p-4 text-slate-300">{{ report.operator.username }}</td>
-                                
-                                <!-- Reported Status Badge -->
-                                <td class="p-4">
-                                    <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
-                                        {{ report.get_quarter_status_display }}
-                                    </span>
-                                </td>
-
-                                <!-- Watermarked Evidence Link -->
-                                <td class="p-4">
-                                    {% if report.photo %}
-                                        <a href="{{ report.photo.url }}" target="_blank" class="inline-flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300 underline font-medium">
-                                            <span>View Photo</span> ↗
-                                        </a>
-                                    {% else %}
-                                        <span class="text-xs text-slate-600">No Photo</span>
-                                    {% endif %}
-                                </td>
-
-                                <!-- Geofence Verification Status Badge -->
-                                <td class="p-4" id="geofence-cell-{{ report.id }}">
-                                    {% if report.is_location_verified %}
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                                            ✓ Inside Boundary
-                                        </span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                                            Unverified
-                                        </span>
-                                    {% endif %}
-                                </td>
-
-                                <!-- Current Audit Verification Status -->
-                                <td class="p-4">
-                                    {% if report.verification_status == 'APPROVED' %}
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
-                                            APPROVED
-                                        </span>
-                                    {% elif report.verification_status == 'RECHECK' %}
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                                            RECHECK
-                                        </span>
-                                    {% else %}
-                                        <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                                            PENDING
-                                        </span>
-                                    {% endif %}
-                                </td>
-
-                                <!-- Action & Feedback Column -->
-                                <td class="p-4 min-w-[280px]">
-                                    <div class="space-y-2">
-                                        <input type="text" name="feedback_{{ report.id }}" placeholder="Add remark..." value="{{ report.supervisor_feedback|default:'' }}" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-1.5 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none">
-                                        
-                                        <div class="flex items-center space-x-2">
-                                            <!-- Approve Button (Disabled initially if unverified) -->
-                                            <button type="submit" name="single_action" value="APPROVED_{{ report.id }}"
-                                                    id="approve-btn-{{ report.id }}"
-                                                    {% if not report.is_location_verified %}disabled{% endif %}
-                                                    class="flex-1 bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold py-1.5 px-2.5 rounded-lg text-xs transition-all shadow-md shadow-emerald-600/20 disabled:opacity-30 disabled:cursor-not-allowed">
-                                                ✓ Approve
-                                            </button>
-
-                                            <!-- Recheck Button (ALWAYS ENABLED) -->
-                                            <button type="submit" name="single_action" value="RECHECK_{{ report.id }}"
-                                                    id="recheck-btn-{{ report.id }}"
-                                                    class="flex-1 bg-rose-600/80 hover:bg-rose-500 text-white font-bold py-1.5 px-2.5 rounded-lg text-xs transition-all shadow-md shadow-rose-600/20">
-                                                ⚠️ Recheck
-                                            </button>
-
-                                            <!-- Verify GPS Button -->
-                                            <button type="button" onclick="verifyGPS({{ report.id }})" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
-                                                Verify GPS
-                                            </button>
-                                        </div>
-                                    </div>
-                                </td>
-
-                            </tr>
-                            {% empty %}
-                            <tr>
-                                <td colspan="8" class="p-8 text-center text-slate-500 text-sm">No inspection reports found.</td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+    <!-- Controls / Filter Header -->
+    <div class="bg-slate-900/60 border border-slate-800 p-4 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-4 backdrop-blur-md">
+        <form method="GET" class="flex items-center space-x-3">
+            <label class="text-xs font-bold uppercase tracking-wider text-slate-400">Filter Sector:</label>
+            <div class="relative">
+                <select name="sector" class="bg-slate-800 border border-slate-700 text-slate-200 text-sm rounded-xl p-2.5 pr-8 focus:ring-2 focus:ring-blue-500 focus:outline-none appearance-none">
+                    <option value="">All Sectors</option>
+                    {% for sec in sectors %}
+                        <option value="{{ sec.name }}" {% if selected_sector == sec.name %}selected{% endif %}>{{ sec.name }}</option>
+                    {% endfor %}
+                </select>
+                <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">▾</div>
             </div>
-
-            <!-- Floating Bulk Decision Toolbar -->
-            <div id="bulk-action-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 px-6 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-6 z-50">
-                <div class="flex items-center space-x-2 text-xs text-slate-300 font-semibold">
-                    <span id="selected-count" class="bg-blue-600 text-white font-bold text-[11px] px-2 py-0.5 rounded-full">0</span>
-                    <span>Reports Selected</span>
-                </div>
-
-                <div class="h-4 w-px bg-slate-700"></div>
-
-                <div class="flex items-center space-x-3">
-                    <select name="bulk_action" required class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
-                        <option value="APPROVED">✓ Approve All Selected</option>
-                        <option value="RECHECK">⚠️ Request Recheck for All Selected</option>
-                    </select>
-
-                    <button type="submit" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs px-5 py-2 rounded-xl transition-all shadow-lg shadow-blue-600/30">
-                        Submit Bulk Decision
-                    </button>
-                </div>
-            </div>
-
+            <button type="submit" class="bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs px-4 py-2.5 rounded-xl transition-all shadow-md shadow-blue-600/20">
+                Apply
+            </button>
         </form>
+        <div class="text-xs text-slate-400">
+            Total Submissions: <span class="font-bold text-slate-200">{{ reports|length }}</span>
+        </div>
     </div>
 
-    <!-- Interactive Scripts -->
-    <script>
-    function toggleSelectAll(master) {
-        let checkboxes = document.querySelectorAll('.report-checkbox');
-        checkboxes.forEach(cb => {
-            cb.checked = master.checked;
-        });
-        updateBulkBar();
+    <!-- Bulk Action Form Wrapper -->
+    <form id="bulk-review-form" method="POST" action="{% url 'review_inspection' 0 %}">
+        {% csrf_token %}
+
+        <!-- High-Density Data Table -->
+        <div class="bg-slate-900/60 border border-slate-800 rounded-2xl overflow-hidden shadow-xl backdrop-blur-md">
+            <div class="overflow-x-auto">
+                <table class="w-full text-left border-collapse">
+                    <thead class="bg-slate-800/80 text-slate-400 uppercase text-[11px] tracking-wider border-b border-slate-800">
+                        <tr>
+                            <th class="p-4 w-10 text-center">
+                                <input type="checkbox" id="select-all-checkbox" onclick="toggleSelectAll(this)" class="w-4 h-4 accent-blue-600 rounded bg-slate-900 border-slate-700 cursor-pointer">
+                            </th>
+                            <th class="p-4">Quarter Code</th>
+                            <th class="p-4">Operator</th>
+                            <th class="p-4">Reported Status</th>
+                            <th class="p-4">Evidence</th>
+                            <th class="p-4">Geofence Check</th>
+                            <th class="p-4">Verification Status</th>
+                            <th class="p-4 text-center">Action & Feedback</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-800/60 text-sm">
+                        {% for report in reports %}
+                        <tr class="hover:bg-slate-800/30 transition-colors">
+                            
+                            <!-- Checkbox Column -->
+                            <td class="p-4 text-center">
+                                <input type="checkbox" name="selected_reports" value="{{ report.id }}" onclick="updateBulkBar()" class="report-checkbox w-4 h-4 accent-blue-600 rounded bg-slate-900 border-slate-700 cursor-pointer">
+                            </td>
+
+                            <!-- Quarter Code -->
+                            <td class="p-4 font-bold text-blue-400">{{ report.quarter.quarter_code }}</td>
+                            
+                            <!-- Operator -->
+                            <td class="p-4 text-slate-300">{{ report.operator.username }}</td>
+                            
+                            <!-- Reported Status Badge -->
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 rounded-full text-xs font-semibold bg-slate-800 text-slate-300 border border-slate-700">
+                                    {{ report.get_quarter_status_display }}
+                                </span>
+                            </td>
+
+                            <!-- Watermarked Evidence Link -->
+                            <td class="p-4">
+                                {% if report.photo %}
+                                    <a href="{{ report.photo.url }}" target="_blank" class="inline-flex items-center space-x-1 text-xs text-indigo-400 hover:text-indigo-300 underline font-medium">
+                                        <span>View Photo</span> ↗
+                                    </a>
+                                {% else %}
+                                    <span class="text-xs text-slate-600">No Photo</span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Geofence Verification Status Badge -->
+                            <td class="p-4" id="geofence-cell-{{ report.id }}">
+                                {% if report.is_location_verified %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                                        ✓ Inside Boundary
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                                        Unverified
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Current Audit Verification Status -->
+                            <td class="p-4">
+                                {% if report.verification_status == 'APPROVED' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                                        APPROVED
+                                    </span>
+                                {% elif report.verification_status == 'RECHECK' %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-500/20 text-rose-300 border border-rose-500/30">
+                                        RECHECK
+                                    </span>
+                                {% else %}
+                                    <span class="inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                        PENDING
+                                    </span>
+                                {% endif %}
+                            </td>
+
+                            <!-- Action & Feedback Column -->
+                            <td class="p-4 min-w-[280px]">
+                                <div class="space-y-2">
+                                    <input type="text" name="feedback_{{ report.id }}" placeholder="Add remark..." value="{{ report.supervisor_feedback|default:'' }}" class="w-full bg-slate-950 border border-slate-800 text-slate-200 text-xs px-3 py-1.5 rounded-lg focus:ring-1 focus:ring-blue-500 focus:outline-none">
+                                    
+                                    <div class="flex items-center space-x-2">
+                                        <!-- Approve Button (Disabled initially if unverified) -->
+                                        <button type="submit" name="single_action" value="APPROVED_{{ report.id }}"
+                                                id="approve-btn-{{ report.id }}"
+                                                {% if not report.is_location_verified %}disabled{% endif %}
+                                                class="flex-1 bg-emerald-600/80 hover:bg-emerald-500 text-white font-bold py-1.5 px-2.5 rounded-lg text-xs transition-all shadow-md shadow-emerald-600/20 disabled:opacity-30 disabled:cursor-not-allowed">
+                                            ✓ Approve
+                                        </button>
+
+                                        <!-- Recheck Button (ALWAYS ENABLED) -->
+                                        <button type="submit" name="single_action" value="RECHECK_{{ report.id }}"
+                                                id="recheck-btn-{{ report.id }}"
+                                                class="flex-1 bg-rose-600/80 hover:bg-rose-500 text-white font-bold py-1.5 px-2.5 rounded-lg text-xs transition-all shadow-md shadow-rose-600/20">
+                                            ⚠️ Recheck
+                                        </button>
+
+                                        <!-- Verify GPS Button -->
+                                        <button type="button" onclick="verifyGPS({{ report.id }})" class="bg-indigo-600/30 hover:bg-indigo-600/50 text-indigo-300 border border-indigo-500/30 px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all">
+                                            Verify GPS
+                                        </button>
+                                    </div>
+                                </div>
+                            </td>
+
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="8" class="p-8 text-center text-slate-500 text-sm">No inspection reports found.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Floating Bulk Decision Toolbar -->
+        <div id="bulk-action-bar" class="fixed bottom-6 left-1/2 -translate-x-1/2 hidden bg-slate-900/95 backdrop-blur-2xl border border-slate-700/80 px-6 py-3.5 rounded-2xl shadow-2xl flex items-center space-x-6 z-50">
+            <div class="flex items-center space-x-2 text-xs text-slate-300 font-semibold">
+                <span id="selected-count" class="bg-blue-600 text-white font-bold text-[11px] px-2 py-0.5 rounded-full">0</span>
+                <span>Reports Selected</span>
+            </div>
+
+            <div class="h-4 w-px bg-slate-700"></div>
+
+            <div class="flex items-center space-x-3">
+                <select name="bulk_action" required class="bg-slate-950 border border-slate-700 text-slate-200 text-xs rounded-xl px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+                    <option value="APPROVED">✓ Approve All Selected</option>
+                    <option value="RECHECK">⚠️ Request Recheck for All Selected</option>
+                </select>
+
+                <button type="submit" class="bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-bold text-xs px-5 py-2 rounded-xl transition-all shadow-lg shadow-blue-600/30">
+                    Submit Bulk Decision
+                </button>
+            </div>
+        </div>
+
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function toggleSelectAll(master) {
+    let checkboxes = document.querySelectorAll('.report-checkbox');
+    checkboxes.forEach(cb => {
+        cb.checked = master.checked;
+    });
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    let checkboxes = document.querySelectorAll('.report-checkbox:checked');
+    let bulkBar = document.getElementById('bulk-action-bar');
+    let countSpan = document.getElementById('selected-count');
+
+    if (countSpan) countSpan.innerText = checkboxes.length;
+
+    if (bulkBar) {
+        if (checkboxes.length > 0) {
+            bulkBar.classList.remove('hidden');
+            bulkBar.classList.add('flex');
+        } else {
+            bulkBar.classList.add('hidden');
+            bulkBar.classList.remove('flex');
+        }
+    }
+}
+
+function verifyGPS(reportId) {
+    const cell = document.getElementById(`geofence-cell-${reportId}`);
+    const approveBtn = document.getElementById(`approve-btn-${reportId}`);
+
+    if (cell) {
+        cell.innerHTML = `<span class="text-xs text-slate-400 animate-pulse">Checking GPS...</span>`;
     }
 
-    function updateBulkBar() {
-        let checkboxes = document.querySelectorAll('.report-checkbox:checked');
-        let bulkBar = document.getElementById('bulk-action-bar');
-        let countSpan = document.getElementById('selected-count');
-
-        if (countSpan) countSpan.innerText = checkboxes.length;
-
-        if (bulkBar) {
-            if (checkboxes.length > 0) {
-                bulkBar.classList.remove('hidden');
-                bulkBar.classList.add('flex');
-            } else {
-                bulkBar.classList.add('hidden');
-                bulkBar.classList.remove('flex');
+    fetch(`/api/verify-gps/${reportId}/`)
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
-        }
-    }
-
-    function verifyGPS(reportId) {
-        const cell = document.getElementById(`geofence-cell-${reportId}`);
-        const approveBtn = document.getElementById(`approve-btn-${reportId}`);
-
-        if (cell) {
-            cell.innerHTML = `<span class="text-xs text-slate-400 animate-pulse">Checking GPS...</span>`;
-        }
-
-        fetch(`/api/verify-gps/${reportId}/`)
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success' && data.is_verified) {
-                    if (cell) {
-                        cell.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">✓ Inside Boundary</span>`;
-                    }
-                    // Unlock Approve Button upon GPS verification
-                    if (approveBtn) approveBtn.disabled = false;
-
-                } else if (data.status === 'success' && !data.is_verified) {
-                    if (cell) {
-                        cell.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">✕ Outside Boundary</span>`;
-                    }
-                    // Keep Approve disabled on Fraud Alert (Recheck is still available)
-                    if (approveBtn) approveBtn.disabled = true;
-
-                } else {
-                    alert(data.message || "Verification failed");
-                }
-            })
-            .catch(err => {
-                console.error("GPS Verification Error:", err);
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success' && data.is_verified) {
                 if (cell) {
-                    cell.innerHTML = `<span class="text-xs text-rose-400">Verification Error</span>`;
+                    cell.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">✓ Inside Boundary</span>`;
                 }
-            });
-    }
+                // Unlock Approve Button upon GPS verification
+                if (approveBtn) approveBtn.disabled = false;
+
+            } else if (data.status === 'success' && !data.is_verified) {
+                if (cell) {
+                    cell.innerHTML = `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-rose-500/10 text-rose-400 border border-rose-500/20">✕ Outside Boundary</span>`;
+                }
+                // Keep Approve disabled on Fraud Alert (Recheck is still available)
+                if (approveBtn) approveBtn.disabled = true;
+
+            } else {
+                alert(data.message || "Verification failed");
+            }
+        })
+        .catch(err => {
+            console.error("GPS Verification Error:", err);
+            if (cell) {
+                cell.innerHTML = `<span class="text-xs text-rose-400">Verification Error</span>`;
+            }
+        });
+}
 </script>
-</body>
-</html>
+{% endblock %}

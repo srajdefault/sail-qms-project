@@ -1,17 +1,9 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SAIL QMS - Field Inspection</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <style>
-        body { font-family: 'Inter', sans-serif; }
-    </style>
-</head>
-<body class="bg-slate-900 min-h-screen text-slate-100 flex items-center justify-center p-0 sm:p-4">
+{% extends "layout.html" %}
 
+{% block title %}SAIL QMS - Field Inspection{% endblock %}
+
+{% block content %}
+<div class="min-h-screen sm:min-h-0 flex items-center justify-center p-0 sm:p-4">
     <!-- Container Card -->
     <div class="w-full max-w-md bg-slate-800/90 backdrop-blur-xl border border-slate-700/50 sm:rounded-3xl shadow-2xl shadow-blue-950/50 min-h-screen sm:min-h-0 flex flex-col justify-between overflow-hidden">
         
@@ -151,161 +143,162 @@
             <a href="{% url 'logout' %}" class="text-rose-400 hover:underline font-medium">Logout</a>
         </footer>
     </div>
+</div>
+{% endblock %}
 
-    <!-- Interactive Scripts -->
-    <script>
-        let isGpsReady = false;
-        let isPhotoUploaded = false;
+{% block extra_js %}
+<script>
+    let isGpsReady = false;
+    let isPhotoUploaded = false;
 
-        let video = document.getElementById('camera-feed');
-        let canvas = document.getElementById('watermark-canvas');
-        let preview = document.getElementById('photo-preview');
-        let cameraCard = document.getElementById('camera-card');
-        let retakeBtn = document.getElementById('retake-btn');
+    let video = document.getElementById('camera-feed');
+    let canvas = document.getElementById('watermark-canvas');
+    let preview = document.getElementById('photo-preview');
+    let cameraCard = document.getElementById('camera-card');
+    let retakeBtn = document.getElementById('retake-btn');
 
-        function updateSubmitButton() {
-            const submitBtn = document.getElementById('submit-btn');
-            const btnText = document.getElementById('btn-text');
+    function updateSubmitButton() {
+        const submitBtn = document.getElementById('submit-btn');
+        const btnText = document.getElementById('btn-text');
 
-            if (isGpsReady && isPhotoUploaded) {
-                submitBtn.disabled = false;
-                btnText.innerText = "Submit Inspection Report";
-            } else if (!isGpsReady && !isPhotoUploaded) {
-                submitBtn.disabled = true;
-                btnText.innerText = "Waiting for GPS & Photo...";
-            } else if (!isGpsReady) {
-                submitBtn.disabled = true;
-                btnText.innerText = "Waiting for GPS Fix...";
-            } else if (!isPhotoUploaded) {
-                submitBtn.disabled = true;
-                btnText.innerText = "Capture Photo to Submit";
-            }
+        if (isGpsReady && isPhotoUploaded) {
+            submitBtn.disabled = false;
+            btnText.innerText = "Submit Inspection Report";
+        } else if (!isGpsReady && !isPhotoUploaded) {
+            submitBtn.disabled = true;
+            btnText.innerText = "Waiting for GPS & Photo...";
+        } else if (!isGpsReady) {
+            submitBtn.disabled = true;
+            btnText.innerText = "Waiting for GPS Fix...";
+        } else if (!isPhotoUploaded) {
+            submitBtn.disabled = true;
+            btnText.innerText = "Capture Photo to Submit";
         }
+    }
 
-        // 1. Geolocation Handler
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(
-                (position) => {
-                    let lat = position.coords.latitude;
-                    let lng = position.coords.longitude;
+    // 1. Geolocation Handler
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                let lat = position.coords.latitude;
+                let lng = position.coords.longitude;
 
-                    document.getElementById('id_latitude').value = lat;
-                    document.getElementById('id_longitude').value = lng;
+                document.getElementById('id_latitude').value = lat;
+                document.getElementById('id_longitude').value = lng;
 
-                    const statusBox = document.getElementById('gps-status');
-                    const statusText = document.getElementById('gps-text');
+                const statusBox = document.getElementById('gps-status');
+                const statusText = document.getElementById('gps-text');
 
-                    statusBox.className = "p-4 rounded-2xl text-sm font-medium flex items-center space-x-3 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shadow-sm backdrop-blur-sm transition-all duration-300";
-                    statusText.innerText = `GPS Fixed: Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}`;
+                statusBox.className = "p-4 rounded-2xl text-sm font-medium flex items-center space-x-3 bg-emerald-500/10 text-emerald-300 border border-emerald-500/20 shadow-sm backdrop-blur-sm transition-all duration-300";
+                statusText.innerText = `GPS Fixed: Lat ${lat.toFixed(4)}, Lng ${lng.toFixed(4)}`;
 
-                    statusBox.querySelector('span.relative').innerHTML = `<span class="text-emerald-400 font-bold text-sm">✓</span>`;
+                statusBox.querySelector('span.relative').innerHTML = `<span class="text-emerald-400 font-bold text-sm">✓</span>`;
 
-                    isGpsReady = true;
-                    updateSubmitButton();
-                },
-                (error) => {
-                    const statusBox = document.getElementById('gps-status');
-                    const statusText = document.getElementById('gps-text');
-
-                    statusBox.className = "p-4 rounded-2xl text-sm font-medium flex items-center space-x-3 bg-rose-500/10 text-rose-300 border border-rose-500/20 shadow-sm backdrop-blur-sm transition-all duration-300";
-                    statusText.innerText = "GPS Permission Denied. Enable location permissions to proceed.";
-                    statusBox.querySelector('span.relative').innerHTML = `<span class="text-rose-400 font-bold text-sm">✕</span>`;
-
-                    isGpsReady = false;
-                    updateSubmitButton();
-                },
-                { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-            );
-        } else {
-            alert("Geolocation is not supported by your mobile browser.");
-        }
-
-        // 2. Camera Stream
-        async function startCamera() {
-            try {
-                let stream = await navigator.mediaDevices.getUserMedia({ 
-                    video: { facingMode: { exact: "environment" } }, 
-                    audio: false 
-                });
-                video.srcObject = stream;
-            } catch (err) {
-                let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                video.srcObject = stream;
-            }
-            
-            document.getElementById('upload-placeholder').classList.add('hidden');
-            preview.classList.add('hidden');
-            retakeBtn.classList.add('hidden');
-            video.classList.remove('hidden');
-            document.getElementById('snap-btn').classList.remove('hidden');
-
-            // Reset borders
-            cameraCard.classList.remove('border-solid', 'border-emerald-500');
-            cameraCard.classList.add('border-dashed', 'border-slate-700');
-
-            isPhotoUploaded = false;
-            updateSubmitButton();
-        }
-
-        // 3. Canvas Capture & Watermarking
-        function captureAndWatermark() {
-            let ctx = canvas.getContext('2d');
-            canvas.width = video.videoWidth || 640;
-            canvas.height = video.videoHeight || 480;
-
-            // Draw video frame to canvas
-            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-            // Translucent banner
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
-            ctx.fillRect(0, canvas.height - 65, canvas.width, 65);
-
-            // Dynamic values
-            let qSelect = document.getElementById('quarter_select');
-            let qCode = qSelect.value ? qSelect.value : "SAIL QMS";
-            let lat = document.getElementById('id_latitude').value || "0.0000";
-            let lng = document.getElementById('id_longitude').value || "0.0000";
-            let timestamp = new Date().toLocaleString();
-
-            // Watermark text
-            ctx.fillStyle = '#38bdf8'; // Sky blue
-            ctx.font = 'bold 15px Inter, sans-serif';
-            ctx.fillText(`SAIL QMS | QUARTER: ${qCode}`, 15, canvas.height - 38);
-
-            ctx.fillStyle = '#f8fafc'; // White
-            ctx.font = '11px Inter, sans-serif';
-            ctx.fillText(`GPS: ${lat}, ${lng} | TIME: ${timestamp}`, 15, canvas.height - 16);
-
-            // Convert to file blob
-            canvas.toBlob((blob) => {
-                let file = new File([blob], `evidence_${Date.now()}.jpg`, { type: "image/jpeg" });
-                let container = new DataTransfer();
-                container.items.add(file);
-                
-                let photoInput = document.getElementById('photo-upload');
-                photoInput.files = container.files;
-
-                // Render preview
-                preview.src = canvas.toDataURL('image/jpeg');
-                preview.classList.remove('hidden');
-                video.classList.add('hidden');
-                document.getElementById('snap-btn').classList.add('hidden');
-                retakeBtn.classList.remove('hidden');
-
-                // Border styling update
-                cameraCard.classList.remove('border-dashed', 'border-slate-700');
-                cameraCard.classList.add('border-solid', 'border-emerald-500');
-                
-                // Stop media tracks
-                if (video.srcObject) {
-                    let tracks = video.srcObject.getTracks();
-                    tracks.forEach(track => track.stop());
-                }
-
-                isPhotoUploaded = true;
+                isGpsReady = true;
                 updateSubmitButton();
-            }, 'image/jpeg', 0.92);
+            },
+            (error) => {
+                const statusBox = document.getElementById('gps-status');
+                const statusText = document.getElementById('gps-text');
+
+                statusBox.className = "p-4 rounded-2xl text-sm font-medium flex items-center space-x-3 bg-rose-500/10 text-rose-300 border border-rose-500/20 shadow-sm backdrop-blur-sm transition-all duration-300";
+                statusText.innerText = "GPS Permission Denied. Enable location permissions to proceed.";
+                statusBox.querySelector('span.relative').innerHTML = `<span class="text-rose-400 font-bold text-sm">✕</span>`;
+
+                isGpsReady = false;
+                updateSubmitButton();
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    } else {
+        alert("Geolocation is not supported by your mobile browser.");
+    }
+
+    // 2. Camera Stream
+    async function startCamera() {
+        try {
+            let stream = await navigator.mediaDevices.getUserMedia({ 
+                video: { facingMode: { exact: "environment" } }, 
+                audio: false 
+            });
+            video.srcObject = stream;
+        } catch (err) {
+            let stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+            video.srcObject = stream;
         }
-    </script>
-</body>
-</html>
+        
+        document.getElementById('upload-placeholder').classList.add('hidden');
+        preview.classList.add('hidden');
+        retakeBtn.classList.add('hidden');
+        video.classList.remove('hidden');
+        document.getElementById('snap-btn').classList.remove('hidden');
+
+        // Reset borders
+        cameraCard.classList.remove('border-solid', 'border-emerald-500');
+        cameraCard.classList.add('border-dashed', 'border-slate-700');
+
+        isPhotoUploaded = false;
+        updateSubmitButton();
+    }
+
+    // 3. Canvas Capture & Watermarking
+    function captureAndWatermark() {
+        let ctx = canvas.getContext('2d');
+        canvas.width = video.videoWidth || 640;
+        canvas.height = video.videoHeight || 480;
+
+        // Draw video frame to canvas
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+        // Translucent banner
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.85)';
+        ctx.fillRect(0, canvas.height - 65, canvas.width, 65);
+
+        // Dynamic values
+        let qSelect = document.getElementById('quarter_select');
+        let qCode = qSelect.value ? qSelect.value : "SAIL QMS";
+        let lat = document.getElementById('id_latitude').value || "0.0000";
+        let lng = document.getElementById('id_longitude').value || "0.0000";
+        let timestamp = new Date().toLocaleString();
+
+        // Watermark text
+        ctx.fillStyle = '#38bdf8'; // Sky blue
+        ctx.font = 'bold 15px Inter, sans-serif';
+        ctx.fillText(`SAIL QMS | QUARTER: ${qCode}`, 15, canvas.height - 38);
+
+        ctx.fillStyle = '#f8fafc'; // White
+        ctx.font = '11px Inter, sans-serif';
+        ctx.fillText(`GPS: ${lat}, ${lng} | TIME: ${timestamp}`, 15, canvas.height - 16);
+
+        // Convert to file blob
+        canvas.toBlob((blob) => {
+            let file = new File([blob], `evidence_${Date.now()}.jpg`, { type: "image/jpeg" });
+            let container = new DataTransfer();
+            container.items.add(file);
+            
+            let photoInput = document.getElementById('photo-upload');
+            photoInput.files = container.files;
+
+            // Render preview
+            preview.src = canvas.toDataURL('image/jpeg');
+            preview.classList.remove('hidden');
+            video.classList.add('hidden');
+            document.getElementById('snap-btn').classList.add('hidden');
+            retakeBtn.classList.remove('hidden');
+
+            // Border styling update
+            cameraCard.classList.remove('border-dashed', 'border-slate-700');
+            cameraCard.classList.add('border-solid', 'border-emerald-500');
+            
+            // Stop media tracks
+            if (video.srcObject) {
+                let tracks = video.srcObject.getTracks();
+                tracks.forEach(track => track.stop());
+            }
+
+            isPhotoUploaded = true;
+            updateSubmitButton();
+        }, 'image/jpeg', 0.92);
+    }
+</script>
+{% endblock %}
