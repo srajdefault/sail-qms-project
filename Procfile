@@ -1,0 +1,1 @@
+web: gunicorn sail_qms.wsgi:application
